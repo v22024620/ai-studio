@@ -8,14 +8,38 @@ legacy_report.py — 서강카페 월간 매출 리포트 생성 스크립트 (�
       python-dotenv 로 읽어 오도록 리팩터링한다. (강의노트 3.4절)
 
 ※ 아래 API 키·DB 비밀번호는 실제 권한이 전혀 없는 교육용 더미 값이다.
-※ 표준 라이브러리만 사용하며, 실제 DB·외부 API에는 접속하지 않는다.
+※ python-dotenv로 설정을 읽으며, 실제 DB·외부 API에는 접속하지 않는다.
    (DB는 메모리 내 샘플 데이터로, LLM 호출은 모의 응답으로 대체)
 
 실행:  python legacy_report.py
 """
 
+import os
 import sqlite3
+from pathlib import Path
 from urllib.parse import urlparse
+
+from dotenv import load_dotenv
+
+
+# 이 파이썬 파일과 같은 폴더에 있는 .env 읽기
+ENV_PATH = Path(__file__).resolve().parent / ".env"
+load_dotenv(ENV_PATH)
+
+# 비밀 값은 환경변수에서 읽기
+API_KEY = os.getenv("API_KEY")
+DB_URL = os.getenv("DB_URL")
+
+# 일반 설정은 환경변수에서 읽고, 없으면 기본값 사용
+MODEL = os.getenv("MODEL", "claude-sonnet-4-5")
+REPORT_MONTH = os.getenv("REPORT_MONTH", "2026-09")
+
+# 필수 값이 비어 있으면 안내 메시지와 함께 중단
+if not API_KEY or not API_KEY.strip():
+    raise ValueError(".env 파일에 API_KEY를 설정하세요.")
+
+if not DB_URL or not DB_URL.strip():
+    raise ValueError(".env 파일에 DB_URL을 설정하세요.")
 
 # =====================================================================
 # 설정 — 레거시: 모든 값을 코드에 직접 적어 두었다
@@ -31,7 +55,7 @@ REPORT_MONTH = "2026-09"
 # 1) DB 연결 — 데모용: 실제 서버 대신 메모리 DB에 샘플 매출을 적재한다
 # =====================================================================
 def connect_db(db_url):
-    print(f"[DEBUG] DB 접속 시도: {db_url}")          # 로그에 비밀번호까지 그대로 출력
+    
     info = urlparse(db_url)
     print(f"[INFO] 호스트 {info.hostname}:{info.port} / DB {info.path.lstrip('/')}")
     print("[데모] 실제 DB 대신 내장 샘플 데이터를 사용합니다.")
@@ -75,7 +99,7 @@ def request_llm_comment(summary, api_key):
         "anthropic-version": "2023-06-01",
         "content-type": "application/json",
     }
-    print(f"[DEBUG] 요청 헤더: {headers}")              # 키 전체가 콘솔·로그에 남는다
+                 # 키 전체가 콘솔·로그에 남는다
     top = summary[0]["category"] if summary else "없음"
     print(f"[데모] {MODEL} 호출을 생략하고 모의 응답을 사용합니다.")
     return f"[MOCK] 이번 달 매출 1위 카테고리는 '{top}'입니다. 상위 품목 재고를 점검하세요."
